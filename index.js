@@ -115,18 +115,26 @@ async function updateStatus() {
     const guild = channel.guild;
     const embed = await buildEmbed(guild);
 
+    // ลบข้อความเก่า (ถ้ามี)
     if (botMessageId) {
-      try { await (await channel.messages.fetch(botMessageId)).delete(); } catch {}
+      try {
+        const oldMsg = await channel.messages.fetch(botMessageId);
+        await oldMsg.delete();
+        console.log('🗑️ ลบข้อความเก่าแล้ว');
+      } catch (e) {
+        console.log('⚠️ ไม่พบข้อความเก่า หรือถูกลบไปแล้ว');
+      }
     }
 
+    // ส่งข้อความใหม่
     const msg = await channel.send({ embeds: [embed] });
     botMessageId = msg.id;
-    console.log(`✅ อัปเดตสำเร็จ ${new Date().toLocaleTimeString('th-TH')}`);
+
+    console.log(`✅ อัปเดตสถานะสำเร็จ ${new Date().toLocaleTimeString('th-TH')}`);
   } catch (err) {
     console.error('❌ Update Error:', err.message);
   }
 }
-
 // Slash Commands
 client.once('ready', async () => {
   console.log(`✅ Bot Online: ${client.user.tag}`);
