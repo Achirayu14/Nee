@@ -23,7 +23,10 @@ const YOUR_DISCORD_ID = '889802159686840320';
 const FALLBACK_API = 'https://servers-frontend.fivem.net/api/servers/single/67lzxd';
 const ROLE_ID = '1500031144530546808';
 const DB_FILE = './players.json';
-const UPDATE_INTERVAL = 5 * 60 * 1000;
+const UPDATE_INTERVAL = 15 * 60 * 1000;
+const START_HOUR = 18;  // 18:10
+const START_MIN = 10;
+const END_HOUR = 0;     // 00:00 (เที่ยงคืน)
 // ================================================
 
 const client = new Client({
@@ -109,7 +112,22 @@ async function buildEmbed(guild) {
 
 let botMessageId = null;
 
-async function updateStatus() {
+// เช็คว่าอยู่ในช่วงเวลา 18:10 - 00:00 (เวลาไทย)
+function isActiveTime() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const totalMin = h * 60 + m;
+  const startMin = START_HOUR * 60 + START_MIN; // 18:10 = 1090
+  // ช่วง 18:10 - 23:59 (ก่อนเที่ยงคืน)
+  return totalMin >= startMin;
+}
+
+async function updateStatus(force = false) {
+  if (!force && !isActiveTime()) {
+    console.log('⏰ นอกเวลา (18:10 - 00:00) ข้ามการอัปเดต');
+    return;
+  }
   try {
     const channel = await client.channels.fetch(CHANNEL_ID);
     const guild = channel.guild;
@@ -231,7 +249,7 @@ client.on('interactionCreate', async interaction => {
   // /update — อัปเดตสถานะทันที
   else if (interaction.commandName === 'update') {
     await interaction.reply({ content: '🔄 กำลังอัปเดตสถานะ...', ephemeral: true });
-    await updateStatus();
+    await updateStatus(true);
     await interaction.editReply({ content: '✅ อัปเดตสถานะสำเร็จ!' });
   }
 
