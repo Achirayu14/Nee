@@ -21,7 +21,7 @@ const CLIENT_ID = '1499821970273861712';
 const CHANNEL_ID = '1494458371468951624';
 const YOUR_DISCORD_ID = '889802159686840320';
 const FALLBACK_API = 'https://servers-frontend.fivem.net/api/servers/single/67lzxd';
-const ROLE_ID = '1500031144530546808'; 
+const ROLE_ID = '1500031144530546808';
 const DB_FILE = './players.json';
 const UPDATE_INTERVAL = 5 * 60 * 1000;
 // ================================================
@@ -115,7 +115,6 @@ async function updateStatus() {
     const guild = channel.guild;
     const embed = await buildEmbed(guild);
 
-    // ลบข้อความเก่า (ถ้ามี)
     if (botMessageId) {
       try {
         const oldMsg = await channel.messages.fetch(botMessageId);
@@ -126,7 +125,6 @@ async function updateStatus() {
       }
     }
 
-    // ส่งข้อความใหม่
     const msg = await channel.send({ embeds: [embed] });
     botMessageId = msg.id;
 
@@ -135,28 +133,122 @@ async function updateStatus() {
     console.error('❌ Update Error:', err.message);
   }
 }
-// Slash Commands
+
+// ==================== READY + REGISTER COMMANDS ====================
 client.once('ready', async () => {
   console.log(`✅ Bot Online: ${client.user.tag}`);
+
+  const commands = [
+    new SlashCommandBuilder()
+      .setName('add')
+      .setDescription('[Admin] ผูกชื่อ FiveM กับ Discord member')
+      .addUserOption(o => o.setName('member').setDescription('Discord member').setRequired(true))
+      .addStringOption(o => o.setName('fivem_name').setDescription('ชื่อใน FiveM (ตรงกับชื่อ Steam)').setRequired(true)),
+
+    new SlashCommandBuilder()
+      .setName('remove')
+      .setDescription('[Admin] ลบการผูกชื่อ FiveM ของ member')
+      .addUserOption(o => o.setName('member').setDescription('Discord member').setRequired(true)),
+
+    new SlashCommandBuilder()
+      .setName('check')
+      .setDescription('[Admin] เช็คว่า member อยู่ในเกมไหม')
+      .addUserOption(o => o.setName('member').setDescription('Discord member').setRequired(true)),
+
+    new SlashCommandBuilder()
+      .setName('update')
+      .setDescription('[Admin] อัปเดตสถานะทันที'),
+
+    new SlashCommandBuilder()
+      .setName('list')
+      .setDescription('[Admin] ดูรายชื่อที่ผูกไว้ทั้งหมด'),
+  ].map(c => c.toJSON());
+
+  try {
+    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('✅ Register คำสั่งสำเร็จ');
+  } catch (err) {
+    console.error('❌ Register คำสั่งล้มเหลว:', err.message);
+  }
+
   await updateStatus();
   setInterval(updateStatus, UPDATE_INTERVAL);
 });
 
+// ==================== SLASH COMMANDS ====================
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+
   if (interaction.user.id !== YOUR_DISCORD_ID) {
-    return interaction.reply({ content: '❌ คุณไม่มีสิทธิ์', ephemeral: true });
+    return interaction.reply({ content: '❌ คุณไม่มีสิทธิ์ใช้คำสั่งนี้', ephemeral: true });
   }
 
   const db = loadDB();
 
+  // /add — ผูกชื่อ FiveM
   if (interaction.commandName === 'add') {
     const user = interaction.options.getUser('member');
     const fivemName = interaction.options.getString('fivem_name');
     db[user.id] = { fivemName };
     saveDB(db);
-    await interaction.reply({ content: `✅ ผูก **${user.username}** → **${fivemName}**`, ephemeral: true });
+    await interaction.reply({ content: `✅ ผูก **${user.username}** → **${fivemName}** สำเร็จ`, ephemeral: true });
     await updateStatus();
+  }
+
+  // /remove — ลบการผูกชื่อ
+  else if (interaction.commandName === 'remove') {
+    const user = interaction.options.getUser('member');
+    if (!db[user.id]) {
+      return interaction.reply({ content: `⚠️ **${user.username}** ยังไม่มีการผูกชื่อ`, ephemeral: true });
+    }
+    const oldName = db[user.id].fivemName;
+    delete db[user.id];
+    saveDB(db);
+    await interaction.reply({ content: `🗑️ ลบการผูก **${user.username}** (${oldName}) สำเร็จ`, ephemeral: true });
+    await updateStatus();
+  }
+
+  // /check — เช็คสถานะ member
+  else if (interaction.commandName === 'check') {
+    await interaction.deferReply({ ephemeral: true });
+    const user = interaction.options.getUser('member');
+    const fivemPlayers = await getFiveMPlayers();
+
+    const rawName = db[user.id] ? db[user.id].fivemName : user.username;
+    const nameToCheck = normalizeName(rawName);
+    const matched = fivemPlayers.find(p => normalizeName(p.name) === nameToCheck);
+
+    const linkedInfo = db[user.id] ? `\n🔗 ชื่อที่ผูก: **${db[user.id].fivemName}**` : '\n⚠️ ยังไม่ได้ผูกชื่อ (ใช้ชื่อ Discord แทน)';
+
+    if (matched) {
+      await interaction.editReply({ content: `🟢 **${user.username}** อยู่ในเกม\n🎮 Server ID: **${matched.id}** | Ping: ${matched.ping}ms${linkedInfo}` });
+    } else {
+      await interaction.editReply({ content: `🔴 **${user.username}** ไม่ได้อยู่ในเกม${linkedInfo}` });
+    }
+  }
+
+  // /update — อัปเดตสถานะทันที
+  else if (interaction.commandName === 'update') {
+    await interaction.reply({ content: '🔄 กำลังอัปเดตสถานะ...', ephemeral: true });
+    await updateStatus();
+    await interaction.editReply({ content: '✅ อัปเดตสถานะสำเร็จ!' });
+  }
+
+  // /list — ดูรายชื่อที่ผูกไว้
+  else if (interaction.commandName === 'list') {
+    if (Object.keys(db).length === 0) {
+      return interaction.reply({ content: '📋 ยังไม่มีการผูกชื่อใดๆ', ephemeral: true });
+    }
+
+    await interaction.guild.members.fetch();
+    const lines = Object.entries(db).map(([id, data]) => {
+      const member = interaction.guild.members.cache.get(id);
+      const discordName = member ? member.displayName : `Unknown (${id})`;
+      return `• **${discordName}** → ${data.fivemName}`;
+    });
+
+    await interaction.reply({ content: `📋 **รายชื่อที่ผูกไว้ทั้งหมด (${lines.length} คน)**\n${lines.join('\n')}`, ephemeral: true });
   }
 });
 
