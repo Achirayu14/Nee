@@ -8,7 +8,7 @@ const CLIENT_ID = '1499821970273861712';
 const CHANNEL_ID = '1494458371468951624';
 const YOUR_DISCORD_ID = '889802159686840320';
 const FALLBACK_API = 'https://servers-frontend.fivem.net/api/servers/single/67lzxd';
-const ROLE_ID = ''; // ใส่ Role ID ถ้าต้องการกรอง
+const ROLE_ID = '1500031144530546808'; // ใส่ Role ID ถ้าต้องการกรอง
 const DB_FILE = './players.json';
 const UPDATE_INTERVAL = 5 * 60 * 1000;
 // ================================================
