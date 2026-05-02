@@ -1,14 +1,27 @@
+// ==================== WEB SERVER FOR RENDER ====================
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('✅ Shark Community Bot is Running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Web server running on port ${PORT}`);
+});
+
+// ==================== DISCORD BOT ====================
 const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, REST, Routes } = require('discord.js');
 const fs = require('fs');
 
-
 // ==================== CONFIG ====================
-const TOKEN = process.env.TOKEN; // สำคัญ! ใช้ Environment Variable
+const TOKEN = process.env.TOKEN;
 const CLIENT_ID = '1499821970273861712';
 const CHANNEL_ID = '1494458371468951624';
 const YOUR_DISCORD_ID = '889802159686840320';
 const FALLBACK_API = 'https://servers-frontend.fivem.net/api/servers/single/67lzxd';
-const ROLE_ID = '1500031144530546808'; // ใส่ Role ID ถ้าต้องการกรอง
+const ROLE_ID = '1500031144530546808'; 
 const DB_FILE = './players.json';
 const UPDATE_INTERVAL = 5 * 60 * 1000;
 // ================================================
@@ -17,7 +30,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-// ==================== NORMALIZE NAME ====================
+// Normalize Name
 function normalizeName(str) {
   if (!str) return '';
   return str
@@ -58,9 +71,7 @@ async function buildEmbed(guild) {
   await guild.members.fetch();
   let members = guild.members.cache.filter(m => !m.user.bot);
 
-  if (ROLE_ID) {
-    members = members.filter(m => m.roles.cache.has(ROLE_ID));
-  }
+  if (ROLE_ID) members = members.filter(m => m.roles.cache.has(ROLE_ID));
 
   const online = [];
   const offline = [];
@@ -82,11 +93,7 @@ async function buildEmbed(guild) {
     }
   }
 
-  const now = new Date().toLocaleString('th-TH', { 
-    timeZone: 'Asia/Bangkok', 
-    dateStyle: 'short', 
-    timeStyle: 'short' 
-  });
+  const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'short', timeStyle: 'short' });
 
   return new EmbedBuilder()
     .setColor(0x00FF88)
@@ -109,30 +116,18 @@ async function updateStatus() {
     const embed = await buildEmbed(guild);
 
     if (botMessageId) {
-      try {
-        const oldMsg = await channel.messages.fetch(botMessageId);
-        await oldMsg.delete();
-      } catch (e) {}
+      try { await (await channel.messages.fetch(botMessageId)).delete(); } catch {}
     }
 
     const msg = await channel.send({ embeds: [embed] });
     botMessageId = msg.id;
-    console.log(`✅ อัปเดตสถานะสำเร็จ ${new Date().toLocaleTimeString('th-TH')}`);
+    console.log(`✅ อัปเดตสำเร็จ ${new Date().toLocaleTimeString('th-TH')}`);
   } catch (err) {
     console.error('❌ Update Error:', err.message);
   }
 }
 
-// ==================== Slash Commands ====================
-const commands = [
-  new SlashCommandBuilder()
-    .setName('add')
-    .setDescription('[Admin] ผูกชื่อ FiveM')
-    .addUserOption(opt => opt.setName('member').setDescription('เลือก Discord member').setRequired(true))
-    .addStringOption(opt => opt.setName('fivem_name').setDescription('ชื่อในเกม').setRequired(true)),
-  // เพิ่มคำสั่งอื่นๆ ตามต้องการ
-];
-
+// Slash Commands
 client.once('ready', async () => {
   console.log(`✅ Bot Online: ${client.user.tag}`);
   await updateStatus();
