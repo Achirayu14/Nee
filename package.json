@@ -1,12 +1,12 @@
 {
-  "name": "fivem-discord-bot-v2",
-  "version": "3.0.0",
-  "description": "Discord Bot เช็คสมาชิกจาก Display Name อัตโนมัติ",
+  "name": "shark-bot",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3"
+    "discord.js": "^14.18.0",
+    "express": "^4.21.2"
   }
 }
